@@ -1,0 +1,45 @@
+# Dependencies (reinstalled in container)
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js build output (rebuilt in container)
+.next
+out
+
+# Environment files (must not be baked into image; use env at runtime)
+.env
+.env.*
+!.env.example
+
+# Git and IDE
+.git
+.gitignore
+.cursor
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Documentation and local dev (optional; remove if you want them in image)
+docs
+*.md
+!README.md
+
+# Tests and tooling (not needed for production image)
+coverage
+.nyc_output
+*.test.*
+*.spec.*
+__tests__
+e2e
+.eslintcache
+
+# Scripts that are not required at runtime (CLI-only; API uses lib)
+scripts
+
+# Misc
+*.log
+.cache

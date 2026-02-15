@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* International Medical Software – theme variables */
+:root {
+  --navy-950: #0a0f1a;
+  --navy-900: #0f172a;
+  --navy-800: #1e293b;
+  --gold-500: #e5a00d;
+  --gold-600: #c9900b;
+  --accent-blue: #38bdf8;
+  --accent-teal: #2dd4bf;
+  --accent-orange: #fb923c;
+  --success: #22c55e;
+  --error: #ef4444;
+  --error-soft: #f87171;
+  --foreground: #f1f5f9;
+  --foreground-muted: #94a3b8;
+  --border: #334155;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--navy-950);
+  min-height: 100vh;
+}
+
+/* Card-style sections */
+@layer components {
+  .theme-card {
+    @apply rounded-theme-lg border border-navy-700 bg-navy-900/80 shadow-theme-md;
+  }
+  .theme-header-glow {
+    box-shadow: 0 1px 0 0 rgb(229 160 13 / 0.35);
+  }
+}

@@ -1,0 +1,4 @@
+Table,Column Name,Data Type,Length,Precision,Nullable,Default,Comment
+CounterVi,Period_ID,character,7,,NO,,
+CounterVi,BU,character,5,,YES,,
+CounterVi,Amount,double precision,53,,YES,,
