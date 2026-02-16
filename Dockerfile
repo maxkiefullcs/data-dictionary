@@ -54,10 +54,11 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy standalone build output (see next.config.js output: 'standalone')
+# Copy standalone build output.
+# Note: next.config.js sets distDir to ".next-build", so artifacts are under .next-build.
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next-build/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next-build/static ./.next/static
 
 USER nextjs
 

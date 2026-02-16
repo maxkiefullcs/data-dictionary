@@ -13,7 +13,7 @@ function getLabel(value: string): string {
 }
 
 const inputBaseClass =
-  "w-56 rounded-theme border border-navy-600 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50";
+  "w-full min-w-0 max-w-56 rounded-theme border border-navy-600 bg-navy-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50";
 
 type TableSelectorProps = {
   tables: string[];
@@ -123,8 +123,8 @@ export default function TableSelector({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-4">
-      <div className="relative" ref={containerRef}>
+    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="relative w-full min-w-0 sm:max-w-56" ref={containerRef}>
         <label className="sr-only" htmlFor="table-combobox">
           Select Table
         </label>
@@ -140,22 +140,22 @@ export default function TableSelector({
           role="combobox"
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
-          className="w-56 rounded-theme border border-navy-600 bg-navy-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 disabled:opacity-50"
+          className="w-full min-w-0 rounded-theme border border-navy-600 bg-navy-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 disabled:opacity-50"
         />
         {showDropdown && (
           <ul
-            className="absolute z-10 mt-1 max-h-60 w-56 overflow-auto rounded-theme-lg border border-navy-600 bg-navy-900 py-1 shadow-theme-md"
+            className="absolute z-10 mt-1 max-h-60 w-full min-w-[14rem] max-w-56 overflow-auto rounded-theme-lg border border-navy-600 bg-navy-900 py-1 shadow-theme-md"
             role="listbox"
           >
             {renderDropdownContent()}
           </ul>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 min-w-0">
         <label className="text-sm font-medium text-slate-400 whitespace-nowrap">
           Search Column Name:
         </label>
-        <div className="relative">
+        <div className="relative w-full min-w-0 sm:max-w-56">
           <input
             type="text"
             placeholder="Filter by column name..."
@@ -178,7 +178,7 @@ export default function TableSelector({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 min-w-0">
         <label className="text-sm font-medium text-slate-400 whitespace-nowrap">
           Search Comment:
         </label>
@@ -194,7 +194,7 @@ export default function TableSelector({
         type="button"
         onClick={() => onExportExcel()}
         disabled={exportDisabled}
-        className="rounded-theme bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full shrink-0 rounded-theme bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-600 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
       >
         Export
       </button>
