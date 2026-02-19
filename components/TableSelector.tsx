@@ -21,12 +21,14 @@ type TableSelectorProps = {
   onTableChange: (table: string) => void;
   onDropdownOpen?: () => void;
   onExportExcel: () => void | Promise<void>;
+  onResetSearch: () => void;
   search: string;
   onSearchChange: (value: string) => void;
   searchColumnName: string;
   onSearchColumnNameChange: (value: string) => void;
   loading: boolean;
   exportDisabled: boolean;
+  resetDisabled: boolean;
 };
 
 export default function TableSelector({
@@ -35,12 +37,14 @@ export default function TableSelector({
   onTableChange,
   onDropdownOpen,
   onExportExcel,
+  onResetSearch,
   search,
   onSearchChange,
   searchColumnName,
   onSearchColumnNameChange,
   loading,
   exportDisabled,
+  resetDisabled,
 }: TableSelectorProps) {
   const [tableQuery, setTableQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -197,6 +201,14 @@ export default function TableSelector({
         className="w-full shrink-0 rounded-theme bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-600 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
       >
         Export
+      </button>
+      <button
+        type="button"
+        onClick={onResetSearch}
+        disabled={resetDisabled}
+        className="w-full shrink-0 rounded-theme border border-navy-600 bg-navy-800 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-navy-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+      >
+        Reset
       </button>
     </div>
   );

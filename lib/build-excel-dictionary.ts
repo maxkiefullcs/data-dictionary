@@ -110,38 +110,24 @@ function formatLength(length: unknown, _precision?: unknown): string {
   return "—";
 }
 
-function descriptionFromColumnName(columnName: unknown): string {
-  if (!columnName || typeof columnName !== "string")
-    return "No description available.";
-  const name = String(columnName).trim();
-  const lower = name.toLowerCase();
-  const words = name
-    .replace(/_/g, " ")
-    .replace(/([A-Z])/g, " $1")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  const title = words
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
-  if (lower.endsWith("_id"))
-    return `Unique identifier for the related ${title.replace(/\s*Id\s*$/i, "").toLowerCase()} record.`;
-  if (lower.endsWith("_at") || lower.endsWith("_date"))
-    return "Date and time when this record was created or updated.";
-  if (lower === "id") return "Unique identifier for this record.";
-  if (lower.includes("name"))
-    return `Name or label for the ${title.replace(/\s*Name\s*$/i, "").toLowerCase()}.`;
-  if (lower.includes("code"))
-    return `Code or short identifier for the ${title.replace(/\s*Code\s*$/i, "").toLowerCase()}.`;
-  if (lower.includes("flag") || lower.includes("is_"))
-    return `Indicates whether ${title.replace(/\s*(Flag|Is)\s*$/i, "").toLowerCase()} applies.`;
-  return `Stores ${title.toLowerCase()} for this record.`;
-}
+const EMPTY_DESCRIPTION_PLACEHOLDER = "-";
 
 function refineComment(comment: unknown): string | null {
   if (!comment || String(comment).trim() === "" || comment === "-")
     return null;
-  return String(comment).trim();
+  const normalized = String(comment).trim();
+  const legacyAutoDescriptionPatterns = [
+    /^unique identifier for/i,
+    /^date and time when this record was created or updated\.?$/i,
+    /^name or label for/i,
+    /^code or short identifier for/i,
+    /^indicates whether/i,
+    /^stores .* for this record\.?$/i,
+  ];
+  if (legacyAutoDescriptionPatterns.some((pattern) => pattern.test(normalized))) {
+    return null;
+  }
+  return normalized;
 }
 
 function get(row: DictionaryRow, ...keys: string[]): string {
@@ -181,7 +167,7 @@ function applyHeaderStyle(row: ExcelJS.Row, numCells: number): void {
     cell.fill = HEADER_FILL;
     cell.font = HEADER_FONT;
     cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-    cell.border = THIN_BORDER as ExcelJS.Border;
+    cell.border = THIN_BORDER;
   }
 }
 
@@ -192,7 +178,7 @@ function applyDataRowStyle(
 ): void {
   for (let c = 1; c <= numCells; c++) {
     const cell = row.getCell(c);
-    cell.border = THIN_BORDER as ExcelJS.Border;
+    cell.border = THIN_BORDER;
     if (rowIndex % 2 === 1) cell.fill = ALTERNATING_ROW_FILL;
   }
 }
@@ -208,7 +194,7 @@ function rowToCells(row: DictionaryRow): [string, string, string, string, string
   const comment = refineComment(
     get(row, "Comment", "comment", "column_comment")
   );
-  const description = comment || descriptionFromColumnName(colName);
+  const description = comment ?? EMPTY_DESCRIPTION_PLACEHOLDER;
   return [colName, dataType, length, required, description];
 }
 

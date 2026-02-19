@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
+import { getPool } from "@/lib/db";
 
 export interface SchemaRow {
   table_name: string;
@@ -42,8 +42,12 @@ AND ns.nspname = 'public'
 ORDER BY c.table_name, c.ordinal_position
 `;
 
-export async function GET(): Promise<NextResponse<SchemaResponse>> {
+export async function GET(
+  request: NextRequest
+): Promise<NextResponse<SchemaResponse>> {
   try {
+    const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
+    const pool = getPool(dbKey);
     const result = await pool.query<SchemaRow>(DATA_DICTIONARY_SQL);
     return NextResponse.json({ data: result.rows });
   } catch (err) {

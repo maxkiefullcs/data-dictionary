@@ -39,15 +39,15 @@ body {
 
 /* Schema table: sticky header + sticky left columns (data-heavy admin grid) */
 .schema-table-wrap {
-  --schema-table-col: 8rem;
-  --schema-table-name: 11rem;
-  --schema-table-type: 9rem;
+  --schema-table-col: 7rem;
+  --schema-table-name: 9rem;
+  --schema-table-type: 8rem;
   --schema-table-len: 4rem;
-  --schema-table-prec: 5rem;
+  --schema-table-prec: 4.5rem;
   --schema-table-null: 5.5rem;
-  --schema-table-default: 10rem;
-  --schema-table-comment-min: 18rem;
-  --schema-table-comment-max: 36rem;
+  --schema-table-default: 8rem;
+  --schema-table-comment-min: 12rem;
+  --schema-table-comment-max: 24rem;
 }
 
 .schema-table-wrap thead th {

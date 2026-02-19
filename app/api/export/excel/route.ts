@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildWorkbook } from "@/lib/build-excel-dictionary";
-import { pool } from "@/lib/db";
+import { getPool } from "@/lib/db";
 
 export interface SchemaRowForExport {
   table_name: string;
@@ -50,6 +50,8 @@ const EXCEL_MIME =
  */
 export async function POST(request: NextRequest) {
   try {
+    const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
+    const pool = getPool(dbKey);
     const body = (await request.json()) as ExportBody;
     const { rows = [] } = body;
 
@@ -73,9 +75,13 @@ export async function POST(request: NextRequest) {
     const workbookRows = toWorkbookRows(rows);
     const workbook = await buildWorkbook(workbookRows, databaseName);
     const buffer = await workbook.xlsx.writeBuffer();
+    const fileBody =
+      buffer instanceof Uint8Array
+        ? buffer
+        : new Uint8Array(buffer as ArrayBuffer);
     const filename = `Data_Dictionary_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-    return new NextResponse(buffer as Buffer, {
+    return new NextResponse(fileBody, {
       status: 200,
       headers: {
         "Content-Type": EXCEL_MIME,
