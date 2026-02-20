@@ -75,6 +75,7 @@ export default function RelationshipDiagram({
   const [exportingPdf, setExportingPdf] = useState(false);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [hoverTip, setHoverTip] = useState<HoverTip | null>(null);
+  const [showMinimap, setShowMinimap] = useState(true);
 
   const edgeRows = useMemo(() => rows.slice(0, MAX_EDGES), [rows]);
 
@@ -570,45 +571,57 @@ export default function RelationshipDiagram({
           )}
           </div>
 
-          <div className="pointer-events-none absolute bottom-3 right-3 rounded border border-navy-700 bg-navy-900/85 p-1.5">
-            <svg width={miniWidth} height={miniHeight} className="block">
-              <rect x={0} y={0} width={miniWidth} height={miniHeight} fill="#0b1220" />
-              {edges.map((edge) => (
-                <line
-                  key={`mini-${edge.id}`}
-                  x1={miniOffsetX + edge.sourcePoint.x * miniScale}
-                  y1={miniOffsetY + edge.sourcePoint.y * miniScale}
-                  x2={miniOffsetX + edge.targetPoint.x * miniScale}
-                  y2={miniOffsetY + edge.targetPoint.y * miniScale}
-                  stroke="#64748b"
-                  strokeWidth={0.8}
-                  opacity={0.7}
-                />
-              ))}
-              {nodes.map((node) => (
-                <rect
-                  key={`mini-node-${node.id}`}
-                  x={miniOffsetX + (node.x - NODE_WIDTH / 2) * miniScale}
-                  y={miniOffsetY + (node.y - NODE_HEIGHT / 2) * miniScale}
-                  width={Math.max(2, NODE_WIDTH * miniScale)}
-                  height={Math.max(2, NODE_HEIGHT * miniScale)}
-                  fill="#1e3a5f"
-                  stroke="#334155"
-                  strokeWidth={0.7}
-                />
-              ))}
-              {viewport && (
-                <rect
-                  x={miniOffsetX + viewport.x * miniScale}
-                  y={miniOffsetY + viewport.y * miniScale}
-                  width={Math.max(6, viewport.w * miniScale)}
-                  height={Math.max(6, viewport.h * miniScale)}
-                  fill="none"
-                  stroke="#facc15"
-                  strokeWidth={1.2}
-                />
-              )}
-            </svg>
+          <div className="absolute bottom-3 right-3 flex flex-col items-end gap-1">
+            <button
+              type="button"
+              onClick={() => setShowMinimap((v) => !v)}
+              className="pointer-events-auto rounded border border-navy-700 bg-navy-900/85 px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+              title={showMinimap ? "Hide mini-map" : "Show mini-map"}
+            >
+              {showMinimap ? "▾ Map" : "▸ Map"}
+            </button>
+            {showMinimap && (
+              <div className="pointer-events-none rounded border border-navy-700 bg-navy-900/85 p-1.5">
+                <svg width={miniWidth} height={miniHeight} className="block">
+                  <rect x={0} y={0} width={miniWidth} height={miniHeight} fill="#0b1220" />
+                  {edges.map((edge) => (
+                    <line
+                      key={`mini-${edge.id}`}
+                      x1={miniOffsetX + edge.sourcePoint.x * miniScale}
+                      y1={miniOffsetY + edge.sourcePoint.y * miniScale}
+                      x2={miniOffsetX + edge.targetPoint.x * miniScale}
+                      y2={miniOffsetY + edge.targetPoint.y * miniScale}
+                      stroke="#64748b"
+                      strokeWidth={0.8}
+                      opacity={0.7}
+                    />
+                  ))}
+                  {nodes.map((node) => (
+                    <rect
+                      key={`mini-node-${node.id}`}
+                      x={miniOffsetX + (node.x - NODE_WIDTH / 2) * miniScale}
+                      y={miniOffsetY + (node.y - NODE_HEIGHT / 2) * miniScale}
+                      width={Math.max(2, NODE_WIDTH * miniScale)}
+                      height={Math.max(2, NODE_HEIGHT * miniScale)}
+                      fill="#1e3a5f"
+                      stroke="#334155"
+                      strokeWidth={0.7}
+                    />
+                  ))}
+                  {viewport && (
+                    <rect
+                      x={miniOffsetX + viewport.x * miniScale}
+                      y={miniOffsetY + viewport.y * miniScale}
+                      width={Math.max(6, viewport.w * miniScale)}
+                      height={Math.max(6, viewport.h * miniScale)}
+                      fill="none"
+                      stroke="#facc15"
+                      strokeWidth={1.2}
+                    />
+                  )}
+                </svg>
+              </div>
+            )}
           </div>
         </div>
       </div>

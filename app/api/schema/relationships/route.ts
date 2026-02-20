@@ -52,7 +52,8 @@ export async function GET(
 ): Promise<NextResponse<RelationshipResponse>> {
   try {
     const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
-    const pool = getPool(dbKey);
+    const host = request.nextUrl.searchParams.get("host") ?? undefined;
+    const pool = getPool(dbKey, host);
     const result = await pool.query<RelationshipRow>(RELATIONSHIP_SQL);
     return NextResponse.json({ data: result.rows });
   } catch (err) {

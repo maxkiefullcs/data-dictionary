@@ -15,6 +15,7 @@ import RelationshipPanel from "@/components/RelationshipPanel";
 const ROWS_PER_PAGE = 10;
 const ALL_TABLES_VALUE = "ALL";
 const LAST_DB_STORAGE_KEY = "data_dictionary:last_connected_db";
+const LAST_DB_HOST_STORAGE_KEY = "data_dictionary:last_connected_host";
 const RELATIONSHIP_RETRY_COUNT = 1;
 const RELATIONSHIP_RETRY_DELAY_MS = 800;
 
@@ -50,16 +51,25 @@ function groupByTable(rows: SchemaRow[]): Map<string, SchemaRow[]> {
   return map;
 }
 
-async function fetchSchema(dbKey?: string): Promise<SchemaRow[]> {
-  const q = dbKey ? `?db=${encodeURIComponent(dbKey)}` : "";
+async function fetchSchema(dbKey?: string, host?: string): Promise<SchemaRow[]> {
+  const params = new URLSearchParams();
+  if (dbKey) params.set("db", dbKey);
+  if (host) params.set("host", host);
+  const q = params.size > 0 ? `?${params.toString()}` : "";
   const res = await fetch(`/api/schema${q}`);
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? "Request failed");
   return json.data ?? [];
 }
 
-async function fetchRelationships(dbKey?: string): Promise<RelationshipRow[]> {
-  const q = dbKey ? `?db=${encodeURIComponent(dbKey)}` : "";
+async function fetchRelationships(
+  dbKey?: string,
+  host?: string
+): Promise<RelationshipRow[]> {
+  const params = new URLSearchParams();
+  if (dbKey) params.set("db", dbKey);
+  if (host) params.set("host", host);
+  const q = params.size > 0 ? `?${params.toString()}` : "";
   const res = await fetch(`/api/schema/relationships${q}`);
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? "Failed to fetch relationships");
@@ -67,9 +77,13 @@ async function fetchRelationships(dbKey?: string): Promise<RelationshipRow[]> {
 }
 
 async function fetchInferredRelationships(
-  dbKey?: string
+  dbKey?: string,
+  host?: string
 ): Promise<RelationshipRow[]> {
-  const q = dbKey ? `?db=${encodeURIComponent(dbKey)}` : "";
+  const params = new URLSearchParams();
+  if (dbKey) params.set("db", dbKey);
+  if (host) params.set("host", host);
+  const q = params.size > 0 ? `?${params.toString()}` : "";
   const res = await fetch(`/api/schema/relationships/inferred${q}`);
   const json = await res.json();
   if (!res.ok)
@@ -77,21 +91,32 @@ async function fetchInferredRelationships(
   return json.data ?? [];
 }
 
-async function connectDatabase(database: string): Promise<{ database: string }> {
+async function connectDatabase(
+  database: string,
+  host?: string
+): Promise<{ database: string; host: string }> {
   const res = await fetch("/api/db/connect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ database }),
+    body: JSON.stringify({ database, host }),
   });
   const json = await res.json();
   if (!res.ok || json.status !== "connected") {
     throw new Error(json.error ?? "Failed to connect database");
   }
-  return { database: json.database };
+  const hostClean = String(json.host ?? "").replace(/\/\d+$/, "");
+  return { database: json.database, host: hostClean };
 }
 
-async function exportToExcel(rows: SchemaRow[], dbKey?: string): Promise<void> {
-  const q = dbKey ? `?db=${encodeURIComponent(dbKey)}` : "";
+async function exportToExcel(
+  rows: SchemaRow[],
+  dbKey?: string,
+  host?: string
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (dbKey) params.set("db", dbKey);
+  if (host) params.set("host", host);
+  const q = params.size > 0 ? `?${params.toString()}` : "";
   const res = await fetch(`/api/export/excel${q}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -147,12 +172,15 @@ async function withRetry<T>(
 export default function DataDictionaryPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [dbInput, setDbInput] = useState("");
+  const [hostInput, setHostInput] = useState("");
   const [connectedDatabase, setConnectedDatabase] = useState<string>("");
+  const [connectedHost, setConnectedHost] = useState<string>("");
   const [connectingDatabase, setConnectingDatabase] = useState(false);
   const [dbStatusMessage, setDbStatusMessage] = useState<string | null>(null);
   const [showAutoConnectedBadge, setShowAutoConnectedBadge] = useState(false);
   const [autoConnectFailed, setAutoConnectFailed] = useState(false);
   const [autoConnectDatabase, setAutoConnectDatabase] = useState("");
+  const [autoConnectHost, setAutoConnectHost] = useState("");
   const [data, setData] = useState<SchemaRow[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>("");
   const [searchComment, setSearchComment] = useState("");
@@ -193,7 +221,7 @@ export default function DataDictionaryPage() {
       setLoading(true);
       setError(null);
       try {
-        const rows = await fetchSchema(connectedDatabase);
+        const rows = await fetchSchema(connectedDatabase, connectedHost);
         setData(rows);
         const byTable = groupByTable(rows);
         const names = Array.from(byTable.keys()).sort();
@@ -214,7 +242,7 @@ export default function DataDictionaryPage() {
         setLoading(false);
       }
     },
-    [connectedDatabase]
+    [connectedDatabase, connectedHost]
   );
 
   const handleDropdownOpen = useCallback(() => {
@@ -241,9 +269,11 @@ export default function DataDictionaryPage() {
   const connectByName = useCallback(
     async (
       databaseName: string,
+      hostName?: string,
       options?: { persist?: boolean; source?: "manual" | "auto" | "reconnect" }
     ) => {
       const requested = databaseName.trim();
+      const requestedHost = (hostName ?? "").trim();
       const shouldPersist = options?.persist ?? true;
       const source = options?.source ?? "manual";
       if (source !== "auto") {
@@ -256,17 +286,21 @@ export default function DataDictionaryPage() {
       setError(null);
       setConnectingDatabase(true);
       try {
-        const result = await connectDatabase(requested);
+        const result = await connectDatabase(requested, requestedHost || undefined);
         setConnectedDatabase(result.database);
+        setConnectedHost(result.host);
         setDbInput(result.database);
+        setHostInput(result.host);
         setDbStatusMessage(`Connected to ${result.database}`);
         if (shouldPersist) {
           window.localStorage.setItem(LAST_DB_STORAGE_KEY, result.database);
+          window.localStorage.setItem(LAST_DB_HOST_STORAGE_KEY, result.host);
         }
         if (source === "auto") {
           setShowAutoConnectedBadge(true);
           setAutoConnectFailed(false);
           setAutoConnectDatabase(result.database);
+          setAutoConnectHost(result.host);
         } else if (source === "reconnect") {
           setAutoConnectFailed(false);
         }
@@ -275,10 +309,12 @@ export default function DataDictionaryPage() {
           e instanceof Error ? e.message : "Failed to connect database";
         setDbStatusMessage(message);
         setConnectedDatabase("");
+        setConnectedHost("");
         resetLoadedState();
         if (source === "auto" || source === "reconnect") {
           setAutoConnectFailed(true);
           setAutoConnectDatabase(requested);
+          setAutoConnectHost(requestedHost);
         }
       } finally {
         setConnectingDatabase(false);
@@ -289,44 +325,60 @@ export default function DataDictionaryPage() {
 
   const handleConnectDatabase = useCallback(async () => {
     const requested = dbInput.trim();
-    await connectByName(requested, { source: "manual" });
-  }, [connectByName, dbInput]);
+    const requestedHost = hostInput.trim();
+    await connectByName(requested, requestedHost, { source: "manual" });
+  }, [connectByName, dbInput, hostInput]);
 
   const handleDisconnectDatabase = useCallback(() => {
     setConnectedDatabase("");
+    setConnectedHost("");
     setConnectingDatabase(false);
     setDbStatusMessage("Disconnected");
     setShowAutoConnectedBadge(false);
     setAutoConnectFailed(false);
     setAutoConnectDatabase("");
+    setAutoConnectHost("");
     setError(null);
     resetLoadedState();
     window.localStorage.removeItem(LAST_DB_STORAGE_KEY);
+    window.localStorage.removeItem(LAST_DB_HOST_STORAGE_KEY);
   }, [resetLoadedState]);
 
   const handleReconnectAuto = useCallback(async () => {
     const target = (autoConnectDatabase || dbInput).trim();
+    const targetHost = (autoConnectHost || hostInput).trim();
     if (!target) return;
-    await connectByName(target, { persist: false, source: "reconnect" });
-  }, [autoConnectDatabase, connectByName, dbInput]);
+    await connectByName(target, targetHost, {
+      persist: false,
+      source: "reconnect",
+    });
+  }, [autoConnectDatabase, autoConnectHost, connectByName, dbInput, hostInput]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(LAST_DB_STORAGE_KEY)?.trim() ?? "";
+    const savedHost = (
+      window.localStorage.getItem(LAST_DB_HOST_STORAGE_KEY)?.trim() ?? ""
+    ).replace(/\/\d+$/, "");
     if (!saved) return;
     setDbInput(saved);
+    setHostInput(savedHost);
     setAutoConnectDatabase(saved);
-    void connectByName(saved, { persist: false, source: "auto" });
+    setAutoConnectHost(savedHost);
+    void connectByName(saved, savedHost, { persist: false, source: "auto" });
   }, [connectByName]);
 
   useEffect(() => {
     if (!connectedDatabase) return;
     window.localStorage.setItem(LAST_DB_STORAGE_KEY, connectedDatabase);
-  }, [connectedDatabase]);
+    if (connectedHost) {
+      window.localStorage.setItem(LAST_DB_HOST_STORAGE_KEY, connectedHost);
+    }
+  }, [connectedDatabase, connectedHost]);
 
   useEffect(() => {
     setDbStatusMessage(null);
     setError(null);
-  }, [dbInput]);
+  }, [dbInput, hostInput]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -353,12 +405,12 @@ export default function DataDictionaryPage() {
     try {
       const [constraintResult, inferredResult] = await Promise.allSettled([
         withRetry(
-          () => fetchRelationships(connectedDatabase),
+          () => fetchRelationships(connectedDatabase, connectedHost),
           RELATIONSHIP_RETRY_COUNT,
           RELATIONSHIP_RETRY_DELAY_MS
         ),
         withRetry(
-          () => fetchInferredRelationships(connectedDatabase),
+          () => fetchInferredRelationships(connectedDatabase, connectedHost),
           RELATIONSHIP_RETRY_COUNT,
           RELATIONSHIP_RETRY_DELAY_MS
         ),
@@ -387,7 +439,7 @@ export default function DataDictionaryPage() {
     } finally {
       setRelationshipLoading(false);
     }
-  }, [connectedDatabase]);
+  }, [connectedDatabase, connectedHost]);
 
   const handleRetryRelationships = useCallback(() => {
     void loadRelationships();
@@ -535,6 +587,17 @@ export default function DataDictionaryPage() {
                 title={dbInput || "Database name"}
                 className="w-full min-w-0 rounded-theme border border-navy-600 bg-navy-800 px-3 py-2 font-mono text-sm text-slate-100 placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
               />
+              <div className="flex items-center gap-2">
+                <label className="shrink-0 text-[11px] text-slate-500">IP</label>
+                <input
+                  type="text"
+                  value={hostInput}
+                  onChange={(e) => setHostInput(e.target.value)}
+                  placeholder="auto"
+                  title={hostInput || "Database host IP (optional)"}
+                  className="w-full min-w-0 rounded border border-navy-700 bg-navy-900/60 px-2 py-1 font-mono text-[11px] text-slate-400 placeholder-slate-600 focus:border-slate-500 focus:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-500/40"
+                />
+              </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="submit"
@@ -569,6 +632,11 @@ export default function DataDictionaryPage() {
                 }`}
               >
                 {dbStatusMessage}
+                {connectedDatabase && connectedHost && (
+                  <span className="ml-1.5 text-accent-teal/70">
+                    ({connectedHost})
+                  </span>
+                )}
               </p>
             )}
             {autoConnectFailed && !connectedDatabase && (
@@ -593,7 +661,11 @@ export default function DataDictionaryPage() {
               onExportExcel={async () => {
                 setExportNotification(null);
                 try {
-                  await exportToExcel(filteredColumns, connectedDatabase || undefined);
+                  await exportToExcel(
+                    filteredColumns,
+                    connectedDatabase || undefined,
+                    connectedHost || undefined
+                  );
                   setExportNotification({ type: "success" });
                 } catch (e) {
                   setExportNotification({

@@ -51,7 +51,8 @@ const EXCEL_MIME =
 export async function POST(request: NextRequest) {
   try {
     const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
-    const pool = getPool(dbKey);
+    const host = request.nextUrl.searchParams.get("host") ?? undefined;
+    const pool = getPool(dbKey, host);
     const body = (await request.json()) as ExportBody;
     const { rows = [] } = body;
 

@@ -32,7 +32,8 @@ export async function GET(
 ): Promise<NextResponse<InferredResponse>> {
   try {
     const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
-    const pool = getPool(dbKey);
+    const host = request.nextUrl.searchParams.get("host") ?? undefined;
+    const pool = getPool(dbKey, host);
     const result = await pool.query<ColumnRow>(COLUMNS_SQL);
     const inferred = inferRelationships(result.rows);
     return NextResponse.json({ data: inferred });

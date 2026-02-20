@@ -30,7 +30,7 @@ describe("GET /api/schema", () => {
     const response = await GET(createRequest());
     const body = await response.json();
 
-    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh");
+    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh", undefined);
     expect(response.status).toBe(200);
     expect(body).toEqual({ data: [{ table_name: "patient", column_name: "id" }] });
   });
@@ -41,7 +41,7 @@ describe("GET /api/schema", () => {
     const response = await GET(createRequest("http://localhost/api/schema"));
     const body = await response.json();
 
-    expect(getPoolMock).toHaveBeenCalledWith(undefined);
+    expect(getPoolMock).toHaveBeenCalledWith(undefined, undefined);
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: "db down" });
   });

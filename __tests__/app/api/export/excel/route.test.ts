@@ -64,7 +64,7 @@ describe("POST /api/export/excel", () => {
       })
     );
 
-    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh");
+    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh", undefined);
     expect(buildWorkbookMock).toHaveBeenCalledWith(
       [
         expect.objectContaining({

@@ -78,7 +78,7 @@ describe("GET /api/schema/relationships/inferred", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh");
+    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh", undefined);
     expect(body.data).toHaveLength(1);
   });
 

@@ -33,7 +33,7 @@ describe("GET /api/schema/relationships", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh");
+    expect(getPoolMock).toHaveBeenCalledWith("imed_bhh", undefined);
     expect(body).toEqual({ data: [{ constraint_name: "fk_patient_visit" }] });
   });
 

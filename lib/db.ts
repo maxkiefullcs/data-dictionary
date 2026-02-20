@@ -19,6 +19,7 @@ function readDefaultDatabaseName(): string {
 }
 
 const defaultDatabaseName = readDefaultDatabaseName();
+const defaultConnectionHost = new URL(baseConnectionString).hostname;
 
 function isValidDatabaseName(name: string): boolean {
   return /^[a-zA-Z0-9_]+$/.test(name);
@@ -35,9 +36,26 @@ function resolveDatabaseName(input?: string): string {
   return value;
 }
 
-function buildConnectionString(databaseName: string): string {
+function isValidDatabaseHost(host: string): boolean {
+  return /^[a-zA-Z0-9.-]+$/.test(host);
+}
+
+function resolveDatabaseHost(input?: string): string {
+  const raw = (input ?? "").trim();
+  if (!raw) return defaultConnectionHost;
+  const value = raw.replace(/\/\d+$/, "");
+  if (!isValidDatabaseHost(value)) {
+    throw new Error(
+      "Invalid host. Allowed characters: a-z, A-Z, 0-9, dot, hyphen."
+    );
+  }
+  return value;
+}
+
+function buildConnectionString(databaseName: string, host?: string): string {
   const url = new URL(baseConnectionString);
   url.pathname = `/${encodeURIComponent(databaseName)}`;
+  url.hostname = resolveDatabaseHost(host);
   return url.toString();
 }
 
@@ -55,19 +73,31 @@ export function getDefaultDatabaseKey(): string {
   return defaultDatabaseName;
 }
 
-export function getPool(databaseName?: string): Pool {
+export function getPool(databaseName?: string, host?: string): Pool {
   const dbName = resolveDatabaseName(databaseName);
-  if (!poolMap[dbName]) {
-    poolMap[dbName] = new Pool({
-      connectionString: buildConnectionString(dbName),
+  const dbHost = resolveDatabaseHost(host);
+  const cacheKey = `${dbHost}/${dbName}`;
+  if (!poolMap[cacheKey]) {
+    poolMap[cacheKey] = new Pool({
+      connectionString: buildConnectionString(dbName, dbHost),
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });
   }
-  return poolMap[dbName];
+  return poolMap[cacheKey];
 }
 
 export function getDefaultDatabaseName(): string {
   return defaultDatabaseName;
+}
+
+export function getDatabaseConnectionHost(
+  databaseName?: string,
+  host?: string
+): string {
+  const dbName = resolveDatabaseName(databaseName);
+  const connectionString = buildConnectionString(dbName, host);
+  const url = new URL(connectionString);
+  return url.hostname;
 }

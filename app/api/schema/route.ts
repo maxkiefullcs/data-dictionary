@@ -47,7 +47,8 @@ export async function GET(
 ): Promise<NextResponse<SchemaResponse>> {
   try {
     const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
-    const pool = getPool(dbKey);
+    const host = request.nextUrl.searchParams.get("host") ?? undefined;
+    const pool = getPool(dbKey, host);
     const result = await pool.query<SchemaRow>(DATA_DICTIONARY_SQL);
     return NextResponse.json({ data: result.rows });
   } catch (err) {
