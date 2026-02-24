@@ -445,6 +445,32 @@ export default function DataDictionaryPage() {
     void loadRelationships();
   }, [loadRelationships]);
 
+  const saveComment = useCallback(
+    async (tableName: string, columnName: string, comment: string) => {
+      const params = new URLSearchParams();
+      if (connectedDatabase) params.set("db", connectedDatabase);
+      if (connectedHost) params.set("host", connectedHost);
+      const q = params.toString() ? `?${params.toString()}` : "";
+      const res = await fetch(`/api/schema/comment${q}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: tableName, column: columnName, comment }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.status !== "ok") {
+        throw new Error(json.error ?? "Failed to save comment");
+      }
+      setData((prev) =>
+        prev.map((r) =>
+          r.table_name === tableName && r.column_name === columnName
+            ? { ...r, column_comment: comment || null }
+            : r
+        )
+      );
+    },
+    [connectedDatabase, connectedHost]
+  );
+
   useEffect(() => {
     if (activeView === "relationships" && relationships.length === 0) {
       loadRelationships();
@@ -767,6 +793,7 @@ export default function DataDictionaryPage() {
                     rows={currentRows}
                     showTableColumn={selectedTable === ALL_TABLES_VALUE}
                     emptyMessage={emptyMessage}
+                    onCommentSave={saveComment}
                   />
                 ) : relationshipLoading ? (
                   <div className="rounded-theme border border-navy-700 bg-navy-900/40 px-4 py-12 text-center text-sm text-slate-400">

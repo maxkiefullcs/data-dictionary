@@ -3,6 +3,7 @@ import {
   buildRelationshipWorkbook,
   type RelationshipExportRow,
 } from "@/lib/build-relationship-workbook";
+import { logger } from "@/lib/logger";
 
 const EXCEL_MIME =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -36,6 +37,12 @@ export async function POST(request: NextRequest) {
         : new Uint8Array(buffer as ArrayBuffer);
     const filename = `Relationships_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
+    logger.info("Relationships Excel exported", {
+      rows: rows.length,
+      sourceMode,
+      selectedTable,
+      filename,
+    });
     return new NextResponse(fileBody, {
       status: 200,
       headers: {
@@ -46,6 +53,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Export failed";
+    logger.error("Relationships export failed", { error: message });
     console.error("[api/export/relationships]", message, err);
     return NextResponse.json({ error: message }, { status: 500 });
   }

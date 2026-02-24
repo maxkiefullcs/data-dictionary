@@ -170,10 +170,6 @@ export default function RelationshipPanel({
     setShowRelationshipList(true);
   }, [selectedTable, sourceMode, viewMode]);
 
-  if (!selectedTable) {
-    return <EmptyState message="Please select a table to view relationships." />;
-  }
-
   const activeFilterCount =
     Number(sourceMode !== "constraints") +
     Number(search.trim().length > 0);
@@ -192,6 +188,10 @@ export default function RelationshipPanel({
       });
     });
   };
+
+  if (!selectedTable) {
+    return <EmptyState message="Please select a table to view relationships." />;
+  }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-4">

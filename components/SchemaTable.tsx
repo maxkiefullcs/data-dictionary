@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useRef, useEffect, useCallback } from "react";
+
 export type SchemaRow = {
   table_name: string;
   column_name: string;
@@ -16,6 +18,11 @@ type SchemaTableProps = {
   rows: SchemaRow[];
   showTableColumn: boolean;
   emptyMessage: string | null;
+  onCommentSave?: (
+    tableName: string,
+    columnName: string,
+    comment: string
+  ) => Promise<void>;
 };
 
 function dash<T>(v: T | null | undefined): string {
@@ -25,6 +32,140 @@ function dash<T>(v: T | null | undefined): string {
 
 function rowKey(row: SchemaRow): string {
   return `${row.table_name}-${row.column_name}`;
+}
+
+function EditableComment({
+  tableName,
+  columnName,
+  initialComment,
+  onSave,
+  className = "",
+  compact = false,
+}: {
+  tableName: string;
+  columnName: string;
+  initialComment: string | null;
+  onSave?: (table: string, column: string, comment: string) => Promise<void>;
+  className?: string;
+  compact?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(initialComment ?? "");
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const displayText = initialComment ?? "";
+  const canEdit = typeof onSave === "function";
+
+  useEffect(() => {
+    setValue(initialComment ?? "");
+  }, [initialComment]);
+
+  useEffect(() => {
+    if (editing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(value.length, value.length);
+    }
+  }, [editing]);
+
+  const handleSave = useCallback(async () => {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      await onSave(tableName, columnName, value);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }, [onSave, tableName, columnName, value]);
+
+  const handleCancel = useCallback(() => {
+    setValue(initialComment ?? "");
+    setEditing(false);
+  }, [initialComment]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancel();
+      }
+    },
+    [handleCancel]
+  );
+
+  if (!canEdit) {
+    return (
+      <span className={`whitespace-pre-wrap break-words ${className}`}>
+        {dash(initialComment)}
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={compact ? 2 : 3}
+          className="w-full min-w-0 rounded border border-navy-600 bg-navy-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500/50 resize-y"
+          placeholder="Comment..."
+        />
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded bg-gold-500 px-2 py-1 text-xs font-medium text-navy-950 hover:bg-gold-600 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={saving}
+            className="rounded border border-navy-600 bg-navy-800 px-2 py-1 text-xs font-medium text-slate-300 hover:bg-navy-700 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") setEditing(true);
+      }}
+      className={`group cursor-pointer min-w-0 rounded border border-transparent hover:border-navy-600 ${className}`}
+      title="Click to edit comment"
+    >
+      <span className="whitespace-pre-wrap break-words text-slate-200 leading-relaxed">
+        {dash(displayText)}
+      </span>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="ml-1 inline-block shrink-0 opacity-0 group-hover:opacity-70 text-slate-400"
+        aria-hidden
+      >
+        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      </svg>
+    </div>
+  );
 }
 
 function NullableBadge({ isNullable }: { isNullable: string }) {
@@ -57,9 +198,11 @@ const COL = {
 function ColumnCardFull({
   row,
   showTableColumn,
+  onCommentSave,
 }: {
   row: SchemaRow;
   showTableColumn: boolean;
+  onCommentSave?: (table: string, column: string, comment: string) => Promise<void>;
 }) {
   const fields: { label: string; value: React.ReactNode }[] = [
     { label: "Column", value: <span className="font-mono font-medium text-slate-100">{row.column_name}</span> },
@@ -68,7 +211,18 @@ function ColumnCardFull({
     { label: "Precision", value: <span className="font-mono text-slate-300">{dash(row.numeric_precision)}</span> },
     { label: "Nullable", value: <NullableBadge isNullable={row.is_nullable} /> },
     { label: "Default", value: <span className="font-mono text-slate-300 break-all">{dash(row.column_default)}</span> },
-    { label: "Comment", value: <span className="whitespace-pre-wrap break-words text-slate-200 leading-relaxed">{dash(row.column_comment)}</span> },
+    {
+      label: "Comment",
+      value: (
+        <EditableComment
+          tableName={row.table_name}
+          columnName={row.column_name}
+          initialComment={row.column_comment}
+          onSave={onCommentSave}
+          compact
+        />
+      ),
+    },
   ];
   if (showTableColumn) {
     fields.unshift({
@@ -94,9 +248,11 @@ function ColumnCardFull({
 function AdminTable({
   rows,
   showTableColumn,
+  onCommentSave,
 }: {
   rows: SchemaRow[];
   showTableColumn: boolean;
+  onCommentSave?: (table: string, column: string, comment: string) => Promise<void>;
 }) {
   return (
     <div className="schema-table-wrap min-h-0 min-w-0 overflow-auto rounded-lg border border-navy-600">
@@ -182,8 +338,14 @@ function AdminTable({
               <td className="border-b border-navy-700/80 px-3 py-2.5 align-top font-mono text-xs text-slate-300 min-w-0 whitespace-pre-wrap break-all">
                 {dash(row.column_default)}
               </td>
-              <td className="border-b border-navy-700/80 px-3 py-2.5 align-top text-xs text-slate-200 min-w-0 whitespace-pre-wrap break-words leading-relaxed">
-                {dash(row.column_comment)}
+              <td className="border-b border-navy-700/80 px-3 py-2.5 align-top text-xs min-w-0">
+                <EditableComment
+                  tableName={row.table_name}
+                  columnName={row.column_name}
+                  initialComment={row.column_comment}
+                  onSave={onCommentSave}
+                  className="text-slate-200"
+                />
               </td>
             </tr>
           ))}
@@ -197,6 +359,7 @@ export default function SchemaTable({
   rows,
   showTableColumn,
   emptyMessage,
+  onCommentSave,
 }: SchemaTableProps) {
   if (emptyMessage && rows.length === 0) {
     return (
@@ -214,12 +377,17 @@ export default function SchemaTable({
             key={rowKey(row)}
             row={row}
             showTableColumn={showTableColumn}
+            onCommentSave={onCommentSave}
           />
         ))}
       </div>
 
       <div className="hidden lg:block min-h-0">
-        <AdminTable rows={rows} showTableColumn={showTableColumn} />
+        <AdminTable
+          rows={rows}
+          showTableColumn={showTableColumn}
+          onCommentSave={onCommentSave}
+        />
       </div>
     </div>
   );

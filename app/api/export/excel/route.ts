@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildWorkbook } from "@/lib/build-excel-dictionary";
 import { getPool } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export interface SchemaRowForExport {
   table_name: string;
@@ -82,6 +83,11 @@ export async function POST(request: NextRequest) {
         : new Uint8Array(buffer as ArrayBuffer);
     const filename = `Data_Dictionary_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
+    logger.info("Data dictionary Excel exported", {
+      database: databaseName,
+      rows: rows.length,
+      filename,
+    });
     return new NextResponse(fileBody, {
       status: 200,
       headers: {
@@ -92,6 +98,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Export failed";
+    logger.error("Data dictionary export failed", { error: message });
     console.error("[api/export/excel]", message, err);
     return NextResponse.json({ error: message }, { status: 500 });
   }

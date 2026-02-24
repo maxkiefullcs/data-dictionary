@@ -24,6 +24,9 @@ out/
 *.swp
 *.swo
 
+# app logs (optional: remove to commit logs)
+logs/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
