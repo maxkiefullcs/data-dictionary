@@ -64,7 +64,7 @@ const TYPE_MAP: Record<string, string> = {
 };
 
 const COL_WIDTHS_TABLE = [25, 15, 12, 12, 45]; // Column Name, Data Type, Length, Required, Description
-const COL_WIDTHS_ALL = [25, 25, 15, 12, 12, 45]; // Table Name, Column Name, Data Type, Length, Required, Description
+const COL_WIDTHS_ALL = [25, 15, 12, 12, 45]; // Column Name, Data Type, Length, Required, Description (grouped by table)
 
 const DATA_COLS = [
   "Column Name",
@@ -223,6 +223,25 @@ function setAutoColumnWidths(
   }
 }
 
+/** Set column widths by scanning all rows (handles grouped layouts with gaps/merged headers). */
+function setAutoColumnWidthsScanAllRows(
+  sheet: ExcelJS.Worksheet,
+  numCols: number
+): void {
+  for (let c = 1; c <= numCols; c++) {
+    let maxLen = 10;
+    for (let r = 1; r <= sheet.rowCount; r++) {
+      const v = sheet.getRow(r).getCell(c).value;
+      if (v != null) {
+        const s = String(v).slice(0, 100);
+        maxLen = Math.max(maxLen, s.length);
+      }
+    }
+    const w = Math.min(50, Math.max(10, maxLen + 2));
+    sheet.getColumn(c).width = w;
+  }
+}
+
 /**
  * Builds an enterprise Data Dictionary workbook.
  * - Sheet 1: Cover (System Name = connected DB name, Date only; no Prepared For / Version)
@@ -285,31 +304,51 @@ export async function buildWorkbook(
     views: [{ showGridLines: true }],
   });
   allSheet.columns = COL_WIDTHS_ALL.map((w) => ({ width: w }));
-  const allHeaderRow = allSheet.getRow(1);
-  allHeaderRow.values = [
-    "Table Name",
-    "Column Name",
-    "Data Type",
-    "Length",
-    "Required",
-    "Description",
-  ];
-  applyHeaderStyle(allHeaderRow, 6);
 
-  let dataRowIndex = 0;
+  // Title row
+  allSheet.mergeCells("A1:E1");
+  const allTitle = allSheet.getRow(1).getCell(1);
+  allTitle.value = "All Tables (Grouped by Table)";
+  allTitle.font = { bold: true, size: 14 };
+  allTitle.alignment = { horizontal: "left", vertical: "middle" };
+
+  let rowCursor = 3; // leave row 2 as a visual spacer
+  const allColsHeader = ["Column Name", "Data Type", "Length", "Required", "Description"];
+
   for (const tableName of tableNames) {
+    // Section title: TABLE: <name>
+    allSheet.mergeCells(`A${rowCursor}:E${rowCursor}`);
+    const sectionCell = allSheet.getRow(rowCursor).getCell(1);
+    sectionCell.value = `TABLE: ${tableName}`;
+    sectionCell.fill = HEADER_FILL;
+    sectionCell.font = { ...HEADER_FONT, size: 12 };
+    sectionCell.alignment = { horizontal: "left", vertical: "middle" };
+    sectionCell.border = THIN_BORDER;
+    rowCursor++;
+
+    // Column header for this table section
+    const headerRow = allSheet.getRow(rowCursor);
+    headerRow.values = [...allColsHeader];
+    applyHeaderStyle(headerRow, 5);
+    rowCursor++;
+
+    // Data rows for table
     const tableRows = byTable.get(tableName)!;
-    for (const row of tableRows) {
+    tableRows.forEach((row, i) => {
       const [colName, dataType, length, required, description] = rowToCells(row);
-      const r = allSheet.getRow(2 + dataRowIndex);
-      r.values = [tableName, colName, dataType, length, required, description];
-      applyDataRowStyle(r, 6, dataRowIndex);
-      r.getCell(6).alignment = { wrapText: true };
-      dataRowIndex++;
-    }
+      const r = allSheet.getRow(rowCursor);
+      r.values = [colName, dataType, length, required, description];
+      applyDataRowStyle(r, 5, i);
+      r.getCell(5).alignment = { wrapText: true };
+      rowCursor++;
+    });
+
+    // Spacer row between tables
+    rowCursor++;
   }
-  setAutoColumnWidths(allSheet, 6, 1, dataRowIndex);
-  allSheet.views = [{ state: "frozen", ySplit: 1, activeCell: "A2" }];
+
+  setAutoColumnWidthsScanAllRows(allSheet, 5);
+  allSheet.views = [{ state: "frozen", ySplit: 2, activeCell: "A3" }];
 
   // —— Sheet 3+: One sheet per table (no Business Purpose) ——
   const usedSheetNames = new Set<string>(["Cover", "All Tables"]);
