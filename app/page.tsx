@@ -21,6 +21,7 @@ const RELATIONSHIP_RETRY_DELAY_MS = 800;
 
 type SchemaRow = {
   table_name: string;
+  table_comment: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length: number | null;
@@ -123,6 +124,7 @@ async function exportToExcel(
     body: JSON.stringify({
       rows: rows.map((r) => ({
         table_name: r.table_name,
+        table_comment: r.table_comment,
         column_name: r.column_name,
         data_type: r.data_type,
         character_maximum_length: r.character_maximum_length,

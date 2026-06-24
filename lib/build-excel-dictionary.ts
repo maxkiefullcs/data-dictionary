@@ -10,6 +10,7 @@
  */
 
 import ExcelJS from "exceljs";
+import tableComments from "./table-comments.json";
 
 export type DictionaryRow = Record<
   string,
@@ -111,6 +112,7 @@ function formatLength(length: unknown, _precision?: unknown): string {
 }
 
 const EMPTY_DESCRIPTION_PLACEHOLDER = "-";
+const TABLE_COMMENT_MAP = tableComments as Record<string, string>;
 
 function refineComment(comment: unknown): string | null {
   if (!comment || String(comment).trim() === "" || comment === "-")
@@ -137,6 +139,37 @@ function get(row: DictionaryRow, ...keys: string[]): string {
       return String(v).trim();
   }
   return "";
+}
+
+function cleanSingleLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function tableCommentFromRows(rows: DictionaryRow[]): string | null {
+  for (const row of rows) {
+    const comment = cleanSingleLine(
+      get(row, "Table Comment", "table_comment", "table_description")
+    );
+    if (comment && comment !== "-") return comment;
+  }
+  return null;
+}
+
+function tableCommentFromMapping(tableName: string): string | null {
+  const directComment = TABLE_COMMENT_MAP[tableName];
+  if (directComment) return directComment;
+
+  const lowerName = tableName.toLowerCase();
+  const matchingEntry = Object.entries(TABLE_COMMENT_MAP).find(
+    ([mappedTable]) => mappedTable.toLowerCase() === lowerName
+  );
+  return matchingEntry?.[1] ?? null;
+}
+
+function formatTableLabel(tableName: string, rows: DictionaryRow[]): string {
+  const description =
+    tableCommentFromRows(rows) ?? tableCommentFromMapping(tableName) ?? "-";
+  return `${tableName} (${description})`;
 }
 
 const MAX_SHEET_NAME_LENGTH = 31;
@@ -316,10 +349,12 @@ export async function buildWorkbook(
   const allColsHeader = ["Column Name", "Data Type", "Length", "Required", "Description"];
 
   for (const tableName of tableNames) {
+    const tableRows = byTable.get(tableName)!;
+
     // Section title: TABLE: <name>
     allSheet.mergeCells(`A${rowCursor}:E${rowCursor}`);
     const sectionCell = allSheet.getRow(rowCursor).getCell(1);
-    sectionCell.value = `TABLE: ${tableName}`;
+    sectionCell.value = `TABLE: ${formatTableLabel(tableName, tableRows)}`;
     sectionCell.fill = HEADER_FILL;
     sectionCell.font = { ...HEADER_FONT, size: 12 };
     sectionCell.alignment = { horizontal: "left", vertical: "middle" };
@@ -333,7 +368,6 @@ export async function buildWorkbook(
     rowCursor++;
 
     // Data rows for table
-    const tableRows = byTable.get(tableName)!;
     tableRows.forEach((row, i) => {
       const [colName, dataType, length, required, description] = rowToCells(row);
       const r = allSheet.getRow(rowCursor);

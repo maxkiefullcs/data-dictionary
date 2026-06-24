@@ -3,6 +3,7 @@ import { getPool } from "@/lib/db";
 
 export interface SchemaRow {
   table_name: string;
+  table_comment: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length: number | null;
@@ -26,6 +27,7 @@ type SchemaResponse = SchemaSuccessResponse | SchemaErrorResponse;
 const DATA_DICTIONARY_SQL = `
 SELECT
   c.table_name,
+  obj_description(pg_class.oid, 'pg_class') AS table_comment,
   c.column_name,
   c.data_type,
   c.character_maximum_length,
@@ -35,10 +37,13 @@ SELECT
   c.column_default,
   col_description(pg_class.oid, c.ordinal_position) AS column_comment
 FROM information_schema.columns c
-JOIN pg_class ON pg_class.relname = c.table_name
-JOIN pg_namespace ns ON ns.oid = pg_class.relnamespace
+JOIN pg_namespace ns
+  ON ns.nspname = c.table_schema
+JOIN pg_class
+  ON pg_class.relnamespace = ns.oid
+ AND pg_class.relname = c.table_name
 WHERE c.table_schema = 'public'
-AND ns.nspname = 'public'
+AND pg_class.relkind IN ('r', 'p')
 ORDER BY c.table_name, c.ordinal_position
 `;
 

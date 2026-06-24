@@ -52,6 +52,7 @@ describe("POST /api/export/excel", () => {
         rows: [
           {
             table_name: "patient",
+            table_comment: "ข้อมูลผู้ป่วย",
             column_name: "patient_id",
             data_type: "integer",
             character_maximum_length: 10,
@@ -69,6 +70,7 @@ describe("POST /api/export/excel", () => {
       [
         expect.objectContaining({
           Table: "patient",
+          "Table Comment": "ข้อมูลผู้ป่วย",
           "Column Name": "patient_id",
           Nullable: "NOT NULL",
         }),

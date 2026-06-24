@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 export type SchemaRow = {
   table_name: string;
+  table_comment: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length: number | null;

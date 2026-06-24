@@ -34,7 +34,43 @@ describe("buildWorkbook", () => {
     expect(workbook.getWorksheet("All Tables")).toBeDefined();
     expect(workbook.worksheets.length).toBe(4);
     expect(workbook.getWorksheet("Cover")!.getCell("B4").value).toBe("imed_bhh");
-    expect(workbook.getWorksheet("All Tables")!.getCell("C2").value).toBe("Number");
+    expect(workbook.getWorksheet("All Tables")!.getCell("A3").value).toBe(
+      "TABLE: patient (ข้อมูลผู้ป่วย)"
+    );
+    expect(workbook.getWorksheet("All Tables")!.getCell("B5").value).toBe("Number");
+  });
+
+  it("givenTableComment_whenBuildWorkbook_thenUsesDbCommentInGroupedTableLabel", async () => {
+    const workbook = await buildWorkbook([
+      {
+        table: "admit",
+        table_comment: "DB comment should win",
+        column_name: "admit_id",
+        data_type: "bigint",
+        length: 20,
+        is_nullable: "NO",
+      },
+    ]);
+
+    expect(workbook.getWorksheet("All Tables")!.getCell("A3").value).toBe(
+      "TABLE: admit (DB comment should win)"
+    );
+  });
+
+  it("givenNoTableCommentButExcelMappingExists_whenBuildWorkbook_thenUsesMappingComment", async () => {
+    const workbook = await buildWorkbook([
+      {
+        table: "appointment",
+        column_name: "appointment_id",
+        data_type: "bigint",
+        length: 20,
+        is_nullable: "NO",
+      },
+    ]);
+
+    expect(workbook.getWorksheet("All Tables")!.getCell("A3").value).toBe(
+      "TABLE: appointment (ข้อมูลการทำนัด)"
+    );
   });
 
   it("givenRowsWithoutComments_whenBuildWorkbook_thenUsesPlaceholderDescription", async () => {
@@ -50,8 +86,9 @@ describe("buildWorkbook", () => {
     ]);
 
     const allTables = workbook.getWorksheet("All Tables")!;
-    expect(allTables.getCell("F2").value).toBe("-");
-    expect(allTables.getCell("E2").value).toBe("Yes");
+    expect(allTables.getCell("A3").value).toBe("TABLE: orders (-)");
+    expect(allTables.getCell("E5").value).toBe("-");
+    expect(allTables.getCell("D5").value).toBe("Yes");
   });
 
   it("givenRowsWithLegacyAutoDescription_whenBuildWorkbook_thenUsesPlaceholderDescription", async () => {
@@ -67,7 +104,7 @@ describe("buildWorkbook", () => {
     ]);
 
     const allTables = workbook.getWorksheet("All Tables")!;
-    expect(allTables.getCell("F2").value).toBe("-");
+    expect(allTables.getCell("E5").value).toBe("-");
   });
 
   it("givenEmptyInput_whenBuildWorkbook_thenReturnsWorkbookWithBaseSheetsOnly", async () => {

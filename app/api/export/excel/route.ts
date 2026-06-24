@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 
 export interface SchemaRowForExport {
   table_name: string;
+  table_comment?: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length?: number | null;
@@ -25,6 +26,7 @@ function toWorkbookRows(
 ): Record<string, string | number>[] {
   return rows.map((r) => ({
     Table: r.table_name,
+    "Table Comment": r.table_comment ?? "-",
     "Column Name": r.column_name,
     "Data Type": r.data_type,
     Length:
