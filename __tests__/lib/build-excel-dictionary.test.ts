@@ -1,7 +1,7 @@
 import { buildWorkbook, type DictionaryRow } from "@/lib/build-excel-dictionary";
 
 describe("buildWorkbook", () => {
-  it("givenValidRows_whenBuildWorkbook_thenCreatesCoverAllTablesAndPerTableSheets", async () => {
+  it("givenValidRows_whenBuildWorkbook_thenCreatesOnlyMainSheets", async () => {
     const rows: DictionaryRow[] = [
       {
         Table: "patient",
@@ -32,12 +32,22 @@ describe("buildWorkbook", () => {
 
     expect(workbook.getWorksheet("Cover")).toBeDefined();
     expect(workbook.getWorksheet("All Tables")).toBeDefined();
-    expect(workbook.worksheets.length).toBe(4);
+    expect(workbook.worksheets.map((w) => w.name)).toEqual([
+      "Cover",
+      "All Tables",
+      "Human Tables",
+      "Animal Tables",
+    ]);
+    expect(workbook.getWorksheet("patient")).toBeUndefined();
+    expect(workbook.getWorksheet("visit_log")).toBeUndefined();
     expect(workbook.getWorksheet("Cover")!.getCell("B4").value).toBe("imed_bhh");
     expect(workbook.getWorksheet("All Tables")!.getCell("A3").value).toBe(
-      "TABLE: patient (ข้อมูลผู้ป่วย)"
+      "ชื่อตาราง : patient"
     );
-    expect(workbook.getWorksheet("All Tables")!.getCell("B5").value).toBe("Number");
+    expect(workbook.getWorksheet("All Tables")!.getCell("B4").value).toBe(
+      "ข้อมูลผู้ป่วย"
+    );
+    expect(workbook.getWorksheet("All Tables")!.getCell("B9").value).toBe("integer");
   });
 
   it("givenTableComment_whenBuildWorkbook_thenUsesDbCommentInGroupedTableLabel", async () => {
@@ -53,7 +63,10 @@ describe("buildWorkbook", () => {
     ]);
 
     expect(workbook.getWorksheet("All Tables")!.getCell("A3").value).toBe(
-      "TABLE: admit (DB comment should win)"
+      "ชื่อตาราง : admit"
+    );
+    expect(workbook.getWorksheet("All Tables")!.getCell("B4").value).toBe(
+      "DB comment should win"
     );
   });
 
@@ -69,7 +82,10 @@ describe("buildWorkbook", () => {
     ]);
 
     expect(workbook.getWorksheet("All Tables")!.getCell("A3").value).toBe(
-      "TABLE: appointment (ข้อมูลการทำนัด)"
+      "ชื่อตาราง : appointment"
+    );
+    expect(workbook.getWorksheet("All Tables")!.getCell("B4").value).toBe(
+      "ข้อมูลการทำนัด"
     );
   });
 
@@ -86,9 +102,10 @@ describe("buildWorkbook", () => {
     ]);
 
     const allTables = workbook.getWorksheet("All Tables")!;
-    expect(allTables.getCell("A3").value).toBe("TABLE: orders (-)");
-    expect(allTables.getCell("E5").value).toBe("-");
-    expect(allTables.getCell("D5").value).toBe("Yes");
+    expect(allTables.getCell("A3").value).toBe("ชื่อตาราง : orders");
+    expect(allTables.getCell("B4").value).toBe("-");
+    expect(allTables.getCell("D9").value).toBe("-");
+    expect(allTables.getCell("C9").value).toBe("NO");
   });
 
   it("givenRowsWithLegacyAutoDescription_whenBuildWorkbook_thenUsesPlaceholderDescription", async () => {
@@ -104,13 +121,86 @@ describe("buildWorkbook", () => {
     ]);
 
     const allTables = workbook.getWorksheet("All Tables")!;
-    expect(allTables.getCell("E5").value).toBe("-");
+    expect(allTables.getCell("D9").value).toBe("-");
+  });
+
+  it("givenTableVersions_whenBuildWorkbook_thenCreatesHumanAndAnimalSheets", async () => {
+    const workbook = await buildWorkbook([
+      {
+        table: "patient_only",
+        table_version: "0",
+        column_name: "patient_id",
+        data_type: "bigint",
+        is_nullable: "NO",
+      },
+      {
+        table: "animal_only",
+        table_version: "1",
+        column_name: "animal_id",
+        data_type: "bigint",
+        is_nullable: "NO",
+      },
+      {
+        table: "shared_table",
+        table_version: "2",
+        column_name: "id",
+        data_type: "bigint",
+        is_nullable: "NO",
+      },
+    ]);
+
+    const humanSheet = workbook.getWorksheet("Human Tables")!;
+    const animalSheet = workbook.getWorksheet("Animal Tables")!;
+
+    expect(humanSheet).toBeDefined();
+    expect(animalSheet).toBeDefined();
+    expect(workbook.worksheets.map((w) => w.name)).toEqual([
+      "Cover",
+      "All Tables",
+      "Human Tables",
+      "Animal Tables",
+    ]);
+    expect(humanSheet.getCell("A3").value).toBe("ชื่อตาราง : patient_only");
+    expect(humanSheet.getCell("A11").value).toBe("ชื่อตาราง : shared_table");
+    expect(animalSheet.getCell("A3").value).toBe("ชื่อตาราง : animal_only");
+    expect(animalSheet.getCell("A11").value).toBe("ชื่อตาราง : shared_table");
+  });
+
+  it("givenTableNamesDifferOnlyByCase_whenBuildWorkbook_thenDoesNotCreatePerTableSheets", async () => {
+    const workbook = await buildWorkbook([
+      {
+        table: "Export_Worksheet",
+        column_name: "id",
+        data_type: "bigint",
+        is_nullable: "NO",
+      },
+      {
+        table: "export_worksheet",
+        column_name: "id",
+        data_type: "bigint",
+        is_nullable: "NO",
+      },
+    ]);
+
+    expect(workbook.worksheets.map((w) => w.name)).toEqual([
+      "Cover",
+      "All Tables",
+      "Human Tables",
+      "Animal Tables",
+    ]);
+    expect(workbook.getWorksheet("Export_Worksheet")).toBeUndefined();
+    expect(workbook.getWorksheet("export_worksheet")).toBeUndefined();
   });
 
   it("givenEmptyInput_whenBuildWorkbook_thenReturnsWorkbookWithBaseSheetsOnly", async () => {
     const workbook = await buildWorkbook([]);
 
-    expect(workbook.worksheets.map((w) => w.name)).toEqual(["Cover", "All Tables"]);
+    expect(workbook.worksheets.map((w) => w.name)).toEqual([
+      "Cover",
+      "All Tables",
+      "Human Tables",
+      "Animal Tables",
+    ]);
     expect(workbook.getWorksheet("Cover")!.getCell("B10").value).toBe(0);
   });
 });

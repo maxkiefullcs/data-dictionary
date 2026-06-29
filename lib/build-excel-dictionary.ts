@@ -1,8 +1,9 @@
 /**
  * Enterprise Data Dictionary Excel builder.
  * - Sheet 1: "Cover" (presentation only: title, System Name = connected DB name, Date, Summary, Description; no Prepared For / Version)
- * - Sheet 2: "All Tables" (combined view, 6 columns, auto column width)
- * - Sheet 3+: One sheet per table (5 columns each, no Business Purpose, auto column width)
+ * - Sheet 2: "All Tables" (combined grouped view)
+ * - Sheet 3: "Human Tables" (table_version 0 and 2)
+ * - Sheet 4: "Animal Tables" (table_version 1 and 2)
  *
  * Input rows: Table/table, Column Name/column_name, Data Type/data_type,
  * Length/length, Nullable/nullable/is_nullable, Comment/comment/column_comment.
@@ -68,11 +69,11 @@ const COL_WIDTHS_TABLE = [25, 15, 12, 12, 45]; // Column Name, Data Type, Length
 const COL_WIDTHS_ALL = [25, 15, 12, 12, 45]; // Column Name, Data Type, Length, Required, Description (grouped by table)
 
 const DATA_COLS = [
-  "Column Name",
-  "Data Type",
-  "Length",
-  "Required",
+  "Column name",
+  "Type",
+  "NULL",
   "Description",
+  "Index",
 ] as const;
 
 const COVER_LABEL_FONT: Partial<ExcelJS.Font> = { bold: true, size: 11 };
@@ -84,6 +85,14 @@ function formatCoverDate(date: Date): string {
   const month = months.split(" ")[d.getMonth()];
   const year = d.getFullYear();
   return `${day} ${month} ${year}`;
+}
+
+function formatDictionaryDate(date: Date): string {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function normalizeType(raw: unknown): string {
@@ -99,6 +108,13 @@ function requiredFromNullable(nullable: unknown): string {
   const n = String(nullable ?? "").toLowerCase().trim();
   if (n === "no" || n === "not null" || n === "required") return "Yes";
   return "No";
+}
+
+function nullFromNullable(nullable: unknown): string {
+  const n = String(nullable ?? "").toLowerCase().trim();
+  if (n === "no" || n === "not null" || n === "required") return "NO";
+  if (n === "yes" || n === "null") return "YES";
+  return n ? String(nullable) : "-";
 }
 
 function formatLength(length: unknown, _precision?: unknown): string {
@@ -172,26 +188,35 @@ function formatTableLabel(tableName: string, rows: DictionaryRow[]): string {
   return `${tableName} (${description})`;
 }
 
-const MAX_SHEET_NAME_LENGTH = 31;
-
-function sanitizeSheetName(name: string): string {
-  return String(name)
-    .replace(/[\\/*?:[\]]/g, "_")
-    .slice(0, MAX_SHEET_NAME_LENGTH);
+function tableMetaFromRows(rows: DictionaryRow[], ...keys: string[]): string {
+  for (const row of rows) {
+    const value = cleanSingleLine(get(row, ...keys));
+    if (value && value !== "-") return value;
+  }
+  return "-";
 }
 
-function uniqueSheetName(baseName: string, used: Set<string>): string {
-  let candidate = sanitizeSheetName(baseName);
-  if (!used.has(candidate)) {
-    used.add(candidate);
-    return candidate;
-  }
-  const base = candidate.slice(0, MAX_SHEET_NAME_LENGTH - 4);
-  let n = 2;
-  while (used.has(sanitizeSheetName(`${base}_${n}`))) n++;
-  candidate = sanitizeSheetName(`${base}_${n}`);
-  used.add(candidate);
-  return candidate;
+function tableVersionFromRows(rows: DictionaryRow[]): string {
+  return tableMetaFromRows(rows, "Table Version", "table_version");
+}
+
+function tableVersionLabel(version: string): string {
+  if (version === "0") return "คน";
+  if (version === "1") return "สัตว์";
+  if (version === "2") return "ใช้ร่วมกัน";
+  return "-";
+}
+
+function tableNamesForAudience(
+  tableNames: string[],
+  byTable: Map<string, DictionaryRow[]>,
+  audience: "human" | "animal"
+): string[] {
+  return tableNames.filter((tableName) => {
+    const version = tableVersionFromRows(byTable.get(tableName)!);
+    if (audience === "human") return version === "0" || version === "2";
+    return version === "1" || version === "2";
+  });
 }
 
 function applyHeaderStyle(row: ExcelJS.Row, numCells: number): void {
@@ -229,6 +254,133 @@ function rowToCells(row: DictionaryRow): [string, string, string, string, string
   );
   const description = comment ?? EMPTY_DESCRIPTION_PLACEHOLDER;
   return [colName, dataType, length, required, description];
+}
+
+function rowToDictionaryCells(row: DictionaryRow): [string, string, string, string, string] {
+  const colName = get(row, "Column Name", "column_name");
+  const dataType = get(row, "Data Type", "data_type") || "-";
+  const nullable = nullFromNullable(get(row, "Nullable", "nullable", "is_nullable"));
+  const comment = refineComment(
+    get(row, "Comment", "comment", "column_comment")
+  );
+  const description = comment ?? EMPTY_DESCRIPTION_PLACEHOLDER;
+  const index = get(row, "Index", "column_index") || "-";
+  return [colName, dataType, nullable, description, index];
+}
+
+function applyDictionaryTitleStyle(row: ExcelJS.Row): void {
+  for (let c = 1; c <= 5; c++) {
+    const cell = row.getCell(c);
+    cell.border = THIN_BORDER;
+    cell.font = { bold: true, size: 11 };
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+  }
+}
+
+function applySectionTitleStyle(row: ExcelJS.Row): void {
+  for (let c = 1; c <= 5; c++) {
+    const cell = row.getCell(c);
+    cell.fill = HEADER_FILL;
+    cell.font = HEADER_FONT;
+    cell.alignment = { horizontal: "left", vertical: "middle" };
+    cell.border = THIN_BORDER;
+  }
+}
+
+function applyInfoRowStyle(row: ExcelJS.Row): void {
+  for (let c = 1; c <= 5; c++) {
+    const cell = row.getCell(c);
+    cell.border = THIN_BORDER;
+    cell.alignment = { vertical: "middle", wrapText: true };
+  }
+  row.getCell(1).font = { bold: true };
+}
+
+function writeDictionarySections(
+  sheet: ExcelJS.Worksheet,
+  tableNames: string[],
+  byTable: Map<string, DictionaryRow[]>,
+  dateStr: string
+): void {
+  sheet.columns = [
+    { width: 28 },
+    { width: 18 },
+    { width: 10 },
+    { width: 80 },
+    { width: 10 },
+  ];
+  sheet.mergeCells("A1:B1");
+  sheet.getCell("A1").value = "Data dictionary";
+  sheet.mergeCells("C1:D1");
+  sheet.getCell("C1").value = "Last Update:";
+  sheet.getCell("E1").value = dateStr;
+  applyDictionaryTitleStyle(sheet.getRow(1));
+
+  let rowCursor = 3;
+  for (const tableName of tableNames) {
+    const tableRows = byTable.get(tableName)!;
+    const tableComment =
+      tableCommentFromRows(tableRows) ?? tableCommentFromMapping(tableName) ?? "-";
+    const tableType = tableMetaFromRows(tableRows, "Table Type", "table_type");
+    const priority = tableMetaFromRows(
+      tableRows,
+      "Priority Description",
+      "priority_description",
+      "Table Priority",
+      "table_priority"
+    );
+    const tableVersion = tableVersionLabel(tableVersionFromRows(tableRows));
+
+    sheet.mergeCells(`A${rowCursor}:E${rowCursor}`);
+    const titleRow = sheet.getRow(rowCursor);
+    titleRow.getCell(1).value = `ชื่อตาราง : ${tableName}`;
+    applySectionTitleStyle(titleRow);
+    rowCursor++;
+
+    const descriptionRow = sheet.getRow(rowCursor);
+    descriptionRow.getCell(1).value = "คำอธิบายตาราง:";
+    descriptionRow.getCell(2).value = tableComment;
+    sheet.mergeCells(`B${rowCursor}:E${rowCursor}`);
+    applyInfoRowStyle(descriptionRow);
+    rowCursor++;
+
+    const typeRow = sheet.getRow(rowCursor);
+    typeRow.getCell(1).value = "ประเภทตาราง:";
+    typeRow.getCell(2).value = tableType;
+    sheet.mergeCells(`B${rowCursor}:E${rowCursor}`);
+    applyInfoRowStyle(typeRow);
+    rowCursor++;
+
+    const priorityRow = sheet.getRow(rowCursor);
+    priorityRow.getCell(1).value = "ความสำคัญ:";
+    priorityRow.getCell(2).value = priority;
+    sheet.mergeCells(`B${rowCursor}:E${rowCursor}`);
+    applyInfoRowStyle(priorityRow);
+    rowCursor++;
+
+    const versionRow = sheet.getRow(rowCursor);
+    versionRow.getCell(1).value = "รูปแบบข้อมูล:";
+    versionRow.getCell(2).value = tableVersion;
+    sheet.mergeCells(`B${rowCursor}:E${rowCursor}`);
+    applyInfoRowStyle(versionRow);
+    rowCursor++;
+
+    const headerRow = sheet.getRow(rowCursor);
+    headerRow.values = [...DATA_COLS];
+    applyHeaderStyle(headerRow, 5);
+    rowCursor++;
+
+    tableRows.forEach((row, i) => {
+      const r = sheet.getRow(rowCursor);
+      r.values = rowToDictionaryCells(row);
+      applyDataRowStyle(r, 5, i);
+      r.getCell(4).alignment = { wrapText: true };
+      rowCursor++;
+    });
+
+    rowCursor++;
+  }
+  sheet.views = [{ state: "frozen", ySplit: 1, activeCell: "A2" }];
 }
 
 /** Set column widths from content (min 10, max 50, header + data). */
@@ -279,7 +431,8 @@ function setAutoColumnWidthsScanAllRows(
  * Builds an enterprise Data Dictionary workbook.
  * - Sheet 1: Cover (System Name = connected DB name, Date only; no Prepared For / Version)
  * - Sheet 2: All Tables (combined, auto column width)
- * - Sheet 3+: One sheet per table (no Business Purpose, auto column width)
+ * - Sheet 3: Human Tables (table_version 0 and 2)
+ * - Sheet 4: Animal Tables (table_version 1 and 2)
  * @param databaseName - Connected database name (e.g. from SELECT current_database())
  */
 export async function buildWorkbook(
@@ -302,6 +455,7 @@ export async function buildWorkbook(
 
   const systemName = databaseName ?? "Database";
   const dateStr = formatCoverDate(new Date());
+  const dictionaryDateStr = formatDictionaryDate(new Date());
 
   // —— Sheet 1: Cover (presentation only; no Prepared For, no Version) ——
   const cover = workbook.addWorksheet("Cover", {
@@ -336,77 +490,27 @@ export async function buildWorkbook(
   const allSheet = workbook.addWorksheet("All Tables", {
     views: [{ showGridLines: true }],
   });
-  allSheet.columns = COL_WIDTHS_ALL.map((w) => ({ width: w }));
+  writeDictionarySections(allSheet, tableNames, byTable, dictionaryDateStr);
 
-  // Title row
-  allSheet.mergeCells("A1:E1");
-  const allTitle = allSheet.getRow(1).getCell(1);
-  allTitle.value = "All Tables (Grouped by Table)";
-  allTitle.font = { bold: true, size: 14 };
-  allTitle.alignment = { horizontal: "left", vertical: "middle" };
+  const humanSheet = workbook.addWorksheet("Human Tables", {
+    views: [{ showGridLines: true }],
+  });
+  writeDictionarySections(
+    humanSheet,
+    tableNamesForAudience(tableNames, byTable, "human"),
+    byTable,
+    dictionaryDateStr
+  );
 
-  let rowCursor = 3; // leave row 2 as a visual spacer
-  const allColsHeader = ["Column Name", "Data Type", "Length", "Required", "Description"];
-
-  for (const tableName of tableNames) {
-    const tableRows = byTable.get(tableName)!;
-
-    // Section title: TABLE: <name>
-    allSheet.mergeCells(`A${rowCursor}:E${rowCursor}`);
-    const sectionCell = allSheet.getRow(rowCursor).getCell(1);
-    sectionCell.value = `TABLE: ${formatTableLabel(tableName, tableRows)}`;
-    sectionCell.fill = HEADER_FILL;
-    sectionCell.font = { ...HEADER_FONT, size: 12 };
-    sectionCell.alignment = { horizontal: "left", vertical: "middle" };
-    sectionCell.border = THIN_BORDER;
-    rowCursor++;
-
-    // Column header for this table section
-    const headerRow = allSheet.getRow(rowCursor);
-    headerRow.values = [...allColsHeader];
-    applyHeaderStyle(headerRow, 5);
-    rowCursor++;
-
-    // Data rows for table
-    tableRows.forEach((row, i) => {
-      const [colName, dataType, length, required, description] = rowToCells(row);
-      const r = allSheet.getRow(rowCursor);
-      r.values = [colName, dataType, length, required, description];
-      applyDataRowStyle(r, 5, i);
-      r.getCell(5).alignment = { wrapText: true };
-      rowCursor++;
-    });
-
-    // Spacer row between tables
-    rowCursor++;
-  }
-
-  setAutoColumnWidthsScanAllRows(allSheet, 5);
-  allSheet.views = [{ state: "frozen", ySplit: 2, activeCell: "A3" }];
-
-  // —— Sheet 3+: One sheet per table (no Business Purpose) ——
-  const usedSheetNames = new Set<string>(["Cover", "All Tables"]);
-  for (const tableName of tableNames) {
-    const sheetName = uniqueSheetName(tableName, usedSheetNames);
-    const sheet = workbook.addWorksheet(sheetName, {
-      views: [{ showGridLines: true }],
-    });
-    sheet.columns = COL_WIDTHS_TABLE.map((w) => ({ width: w }));
-
-    const headerRow = sheet.getRow(1);
-    headerRow.values = [...DATA_COLS];
-    applyHeaderStyle(headerRow, 5);
-
-    const tableRows = byTable.get(tableName)!;
-    tableRows.forEach((row, i) => {
-      const r = sheet.getRow(2 + i);
-      r.values = rowToCells(row);
-      applyDataRowStyle(r, 5, i);
-      r.getCell(5).alignment = { wrapText: true };
-    });
-    setAutoColumnWidths(sheet, 5, 1, tableRows.length);
-    sheet.views = [{ state: "frozen", ySplit: 1, activeCell: "A2" }];
-  }
+  const animalSheet = workbook.addWorksheet("Animal Tables", {
+    views: [{ showGridLines: true }],
+  });
+  writeDictionarySections(
+    animalSheet,
+    tableNamesForAudience(tableNames, byTable, "animal"),
+    byTable,
+    dictionaryDateStr
+  );
 
   return workbook;
 }

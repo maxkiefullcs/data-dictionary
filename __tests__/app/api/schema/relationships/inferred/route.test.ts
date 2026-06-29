@@ -82,6 +82,27 @@ describe("GET /api/schema/relationships/inferred", () => {
     expect(body.data).toHaveLength(1);
   });
 
+  it("givenImedDatadict_whenRequested_thenUsesDatadictColumns", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        { table_name: "visit", column_name: "patient_id" },
+        { table_name: "patient", column_name: "patient_id" },
+      ],
+    });
+
+    const response = await GET(
+      createRequest(
+        "http://localhost/api/schema/relationships/inferred?db=imed_datadict&host=192.168.0.212"
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(getPoolMock).toHaveBeenCalledWith("imed_datadict", "192.168.0.212");
+    expect(queryMock.mock.calls[0][0]).toContain("public.column_imed");
+    expect(body.data).toHaveLength(1);
+  });
+
   it("givenQueryError_whenRequested_thenReturns500", async () => {
     queryMock.mockRejectedValueOnce(new Error("inference failed"));
     const response = await GET(

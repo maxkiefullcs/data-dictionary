@@ -27,6 +27,23 @@ WHERE c.table_schema = 'public'
 ORDER BY c.table_name, c.ordinal_position
 `;
 
+const IMED_DATADICT_COLUMNS_SQL = `
+SELECT
+  c.table_name::text AS table_name,
+  c.column_name::text AS column_name
+FROM public.column_imed c
+WHERE COALESCE(c.table_name, '') <> ''
+  AND COALESCE(c.column_name, '') <> ''
+ORDER BY c.table_id, c.column_id, c.table_name, c.column_name
+`;
+
+function getColumnsQuery(databaseName?: string): string {
+  if ((databaseName ?? "").trim().toLowerCase() === "imed_datadict") {
+    return IMED_DATADICT_COLUMNS_SQL;
+  }
+  return COLUMNS_SQL;
+}
+
 export async function GET(
   request: NextRequest
 ): Promise<NextResponse<InferredResponse>> {
@@ -34,7 +51,7 @@ export async function GET(
     const dbKey = request.nextUrl.searchParams.get("db") ?? undefined;
     const host = request.nextUrl.searchParams.get("host") ?? undefined;
     const pool = getPool(dbKey, host);
-    const result = await pool.query<ColumnRow>(COLUMNS_SQL);
+    const result = await pool.query<ColumnRow>(getColumnsQuery(dbKey));
     const inferred = inferRelationships(result.rows);
     return NextResponse.json({ data: inferred });
   } catch (err) {

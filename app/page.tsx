@@ -22,6 +22,10 @@ const RELATIONSHIP_RETRY_DELAY_MS = 800;
 type SchemaRow = {
   table_name: string;
   table_comment: string | null;
+  table_type: string | null;
+  table_priority: string | null;
+  priority_description: string | null;
+  table_version: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length: number | null;
@@ -30,6 +34,7 @@ type SchemaRow = {
   is_nullable: string;
   column_default: string | null;
   column_comment: string | null;
+  column_index?: string | null;
 };
 
 type RelationshipRow = {
@@ -50,6 +55,19 @@ function groupByTable(rows: SchemaRow[]): Map<string, SchemaRow[]> {
     map.set(row.table_name, list);
   }
   return map;
+}
+
+function dash(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || String(value).trim() === "") return "-";
+  return String(value);
+}
+
+function tableVersionLabel(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim();
+  if (normalized === "0") return "คน";
+  if (normalized === "1") return "สัตว์";
+  if (normalized === "2") return "ใช้ร่วมกัน";
+  return dash(value);
 }
 
 async function fetchSchema(dbKey?: string, host?: string): Promise<SchemaRow[]> {
@@ -125,6 +143,10 @@ async function exportToExcel(
       rows: rows.map((r) => ({
         table_name: r.table_name,
         table_comment: r.table_comment,
+        table_type: r.table_type,
+        table_priority: r.table_priority,
+        priority_description: r.priority_description,
+        table_version: r.table_version,
         column_name: r.column_name,
         data_type: r.data_type,
         character_maximum_length: r.character_maximum_length,
@@ -133,6 +155,7 @@ async function exportToExcel(
         is_nullable: r.is_nullable,
         column_default: r.column_default,
         column_comment: r.column_comment,
+        column_index: r.column_index,
       })),
     }),
   });
@@ -498,6 +521,8 @@ export default function DataDictionaryPage() {
       : selectedTable
         ? byTable.get(selectedTable) ?? []
         : [];
+  const selectedTableMetadata =
+    selectedTable && selectedTable !== ALL_TABLES_VALUE ? rows[0] : null;
 
   const filteredColumns = rows.filter((col) => {
     const commentMatch = (col.column_comment ?? "")
@@ -791,12 +816,58 @@ export default function DataDictionaryPage() {
               </div>
               <div className="flex-1 min-h-0 min-w-0 overflow-auto">
                 {activeView === "columns" ? (
-                  <SchemaTable
-                    rows={currentRows}
-                    showTableColumn={selectedTable === ALL_TABLES_VALUE}
-                    emptyMessage={emptyMessage}
-                    onCommentSave={saveComment}
-                  />
+                  <div className="flex min-h-0 min-w-0 flex-col gap-4">
+                    {selectedTableMetadata && (
+                      <section className="rounded-theme border border-navy-700 bg-navy-900/60 p-4">
+                        <h3 className="mb-3 text-sm font-semibold text-slate-100">
+                          ข้อมูลตาราง
+                        </h3>
+                        <dl className="grid gap-3 text-sm md:grid-cols-4">
+                          <div>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              คำอธิบายตาราง
+                            </dt>
+                            <dd className="mt-1 text-slate-200">
+                              {dash(selectedTableMetadata.table_comment)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              ประเภทตาราง
+                            </dt>
+                            <dd className="mt-1 text-slate-200">
+                              {dash(selectedTableMetadata.table_type)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              ความสำคัญ
+                            </dt>
+                            <dd className="mt-1 text-slate-200">
+                              {dash(
+                                selectedTableMetadata.priority_description ??
+                                  selectedTableMetadata.table_priority
+                              )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              รูปแบบข้อมูล
+                            </dt>
+                            <dd className="mt-1 text-slate-200">
+                              {tableVersionLabel(selectedTableMetadata.table_version)}
+                            </dd>
+                          </div>
+                        </dl>
+                      </section>
+                    )}
+                    <SchemaTable
+                      rows={currentRows}
+                      showTableColumn={selectedTable === ALL_TABLES_VALUE}
+                      emptyMessage={emptyMessage}
+                      onCommentSave={saveComment}
+                    />
+                  </div>
                 ) : relationshipLoading ? (
                   <div className="rounded-theme border border-navy-700 bg-navy-900/40 px-4 py-12 text-center text-sm text-slate-400">
                     Loading relationships...

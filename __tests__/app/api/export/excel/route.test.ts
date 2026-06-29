@@ -53,6 +53,10 @@ describe("POST /api/export/excel", () => {
           {
             table_name: "patient",
             table_comment: "ข้อมูลผู้ป่วย",
+            table_type: "master",
+            table_priority: "high",
+            priority_description: "สำคัญมาก",
+            table_version: "0",
             column_name: "patient_id",
             data_type: "integer",
             character_maximum_length: 10,
@@ -60,6 +64,7 @@ describe("POST /api/export/excel", () => {
             is_nullable: "NO",
             column_default: null,
             column_comment: null,
+            column_index: "YES",
           },
         ],
       })
@@ -71,8 +76,13 @@ describe("POST /api/export/excel", () => {
         expect.objectContaining({
           Table: "patient",
           "Table Comment": "ข้อมูลผู้ป่วย",
+          "Table Type": "master",
+          "Table Priority": "high",
+          "Priority Description": "สำคัญมาก",
+          "Table Version": "0",
           "Column Name": "patient_id",
           Nullable: "NOT NULL",
+          Index: "YES",
         }),
       ],
       "imed_reporting"

@@ -70,14 +70,10 @@ SYSTEM_NAME="Sales Analytics System" node scripts/generate-excel-data-dictionary
 
 ### Workbook structure
 
-1. **Cover** – Document Title (Data Dictionary), System Name, Version (1.0), Date, Total Tables, Total Columns.
-2. **Table Index** – Table Name, Business Description, Number of Columns.
-3. **One sheet per table** – Each sheet includes:
-   - Title: `Table: <Table Name>`
-   - Short business-friendly table description
-   - Columns: **Column Name | Data Type | Length | Required | Description**
-   - Data types converted to Text / Number / DateTime; NOT NULL → Yes, NULL → No
-   - Header row frozen for scrolling
+1. **Cover** – Document title, system name, date, total tables, and total columns.
+2. **All Tables** – Grouped data dictionary sections for every table.
+3. **Human Tables** – Grouped sections for tables with `table_version` 0 (human) and 2 (shared).
+4. **Animal Tables** – Grouped sections for tables with `table_version` 1 (animal only) and 2 (shared).
 
 ### Formatting
 

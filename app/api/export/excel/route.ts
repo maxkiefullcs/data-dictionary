@@ -6,6 +6,10 @@ import { logger } from "@/lib/logger";
 export interface SchemaRowForExport {
   table_name: string;
   table_comment?: string | null;
+  table_type?: string | null;
+  table_priority?: string | null;
+  priority_description?: string | null;
+  table_version?: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length?: number | null;
@@ -14,6 +18,7 @@ export interface SchemaRowForExport {
   is_nullable: string;
   column_default?: string | null;
   column_comment?: string | null;
+  column_index?: string | null;
 }
 
 interface ExportBody {
@@ -27,6 +32,10 @@ function toWorkbookRows(
   return rows.map((r) => ({
     Table: r.table_name,
     "Table Comment": r.table_comment ?? "-",
+    "Table Type": r.table_type ?? "-",
+    "Table Priority": r.table_priority ?? "-",
+    "Priority Description": r.priority_description ?? "-",
+    "Table Version": r.table_version ?? "-",
     "Column Name": r.column_name,
     "Data Type": r.data_type,
     Length:
@@ -39,6 +48,7 @@ function toWorkbookRows(
     Nullable: r.is_nullable === "NO" ? "NOT NULL" : "NULL",
     Default: r.column_default ?? "-",
     Comment: r.column_comment ?? "-",
+    Index: r.column_index ?? "-",
   }));
 }
 

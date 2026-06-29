@@ -5,6 +5,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 export type SchemaRow = {
   table_name: string;
   table_comment: string | null;
+  table_type: string | null;
+  table_priority: string | null;
+  priority_description: string | null;
+  table_version: string | null;
   column_name: string;
   data_type: string;
   character_maximum_length: number | null;
@@ -13,6 +17,7 @@ export type SchemaRow = {
   is_nullable: string;
   column_default: string | null;
   column_comment: string | null;
+  column_index?: string | null;
 };
 
 type SchemaTableProps = {
